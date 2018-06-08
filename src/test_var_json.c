@@ -134,6 +134,15 @@ int main(void)
 	free(str);
 	var_json_free(json);
 
+	json = var_json_new_parser(NULL);
+	err = var_json_parse_file(json, "kotivo.json");
+	node = var_json_find_by_key(json, "verification_code", 1);
+	node2 = var_json_find_by_key(json, "begin", 1);
+	node3 = var_json_find_by_key(json, "temperature/target", 1);
+	printf("%p %p %p\n", node, node2, node3);
+	printf("%s\n%s\n%f\n", var_json_get_str(node), var_json_get_str(node2), var_json_get_number(node3));
+	var_json_free(json);
+
 /*
 	time_t start, end;
 	char jsonstr1[16384], jsonstr2[16384];

@@ -7,13 +7,13 @@
 
 /******************************************************************************/
 /* INCLUDES */
+#include <math.h>
 #include "strjson.h"
 
 
 /******************************************************************************/
 /* parsing states: */
-enum
-{
+enum {
 	JSON_PARSE_START = 0,
 	JSON_PARSE_END,
 	JSON_PARSE_SOMETHING,
@@ -62,8 +62,7 @@ size_t json_wcslentombslen(const wchar_t *src, int no_uxxxx)
 	size_t wlen = wcslen(src), i, len = 0;
 	char buf[16];
 
-	for (i = 0; i < wlen; i++)
-	{
+	for (i = 0; i < wlen; i++) {
 		if (wcschr(L"\"\\/\b\f\n\r\t", (int)src[i])) len += 2;
 		else if (src[i] <= 0x007f || no_uxxxx) len += wcrtomb(buf, src[i], &mbs);
 		else if (src[i] <= 0xffff) len += 6; // \uXXXX
@@ -80,13 +79,10 @@ size_t json_wcstombs(char *dst, const wchar_t *src, int no_uxxxx)
 	memset(&mbs, 0, sizeof(mbs));
 	size_t wlen = wcslen(src), i, len = 0;
 
-	for (i = 0; i < wlen; i++)
-	{
-		if (wcschr(L"\"\\/\b\f\n\r\t", (int)src[i]))
-		{
+	for (i = 0; i < wlen; i++) {
+		if (wcschr(L"\"\\/\b\f\n\r\t", (int)src[i])) {
 			dst[len] = '\\';
-			switch (src[i])
-			{
+			switch (src[i]) {
 			case L'\b':
 				dst[len + 1] = 'b';
 				break;
@@ -107,10 +103,8 @@ size_t json_wcstombs(char *dst, const wchar_t *src, int no_uxxxx)
 				break;
 			}
 			len += 2;
-		}
-		else if (src[i] <= 0x007f || no_uxxxx) len += wcrtomb(&dst[len], src[i], &mbs);
-		else if (src[i] <= 0xffff)
-		{
+		} else if (src[i] <= 0x007f || no_uxxxx) len += wcrtomb(&dst[len], src[i], &mbs);
+		else if (src[i] <= 0xffff) {
 			sprintf(&dst[len], "\\u%04x", src[i]);
 			len += 6;
 		}
@@ -137,13 +131,10 @@ out_err:
 /******************************************************************************/
 var_json_t *_node_new(var_json_t *parent, int type, const char *name)
 {
-	if (parent)
-	{
-		switch (parent->type)
-		{
+	if (parent) {
+		switch (parent->type) {
 		case VAR_JSON_NODE_TYPE_STRING:
-			if (parent->wstring)
-			{
+			if (parent->wstring) {
 				free(parent->wstring);
 				parent->wstring = NULL;
 			}
@@ -155,16 +146,14 @@ var_json_t *_node_new(var_json_t *parent, int type, const char *name)
 			return parent;
 		}
 	}
-	
+
 	var_json_t *node = (var_json_t *)malloc(sizeof(*node));
 	memset(node, 0, sizeof(*node));
 	node->type = type;
-	if (name != NULL)
-	{
+	if (name != NULL) {
 		json_ambstowcs(&node->wname, name);
 	}
-	if (parent != NULL)
-	{
+	if (parent != NULL) {
 		node->parent = parent;
 		node->index = parent->ec;
 		parent->ec++;
@@ -181,12 +170,10 @@ size_t _node_to_str(var_json_t *root, char *b)
 	int i, j;
 	size_t len = 0;
 	char *c = NULL, xc[256];
-	
-	if (root->wname)
-	{
+
+	if (root->wname) {
 		len += json_wcslentombslen(root->wname, 0) + 2 + 3; // ""<name>" : "
-		if (b)
-		{
+		if (b) {
 			(*b) = '\"';
 			b++;
 			b += json_wcstombs(b, root->wname, 0);
@@ -194,27 +181,22 @@ size_t _node_to_str(var_json_t *root, char *b)
 			b += strlen(b);
 		}
 	}
-	
-	switch (root->type)
-	{
+
+	switch (root->type) {
 	case VAR_JSON_NODE_TYPE_OBJECT:
 	case VAR_JSON_NODE_TYPE_ARRAY:
 		len += 2 + 2; // "[ " and " ]" or "{ " and " }"
-		if (b)
-		{
+		if (b) {
 			if (root->type == VAR_JSON_NODE_TYPE_OBJECT) sprintf(b, "{ ");
 			else sprintf(b, "[ ");
 			b += 2;
 		}
 	case VAR_JSON_NODE_TYPE_ROOT:
-		for (i = 0, j = 0; i < root->ec; i++)
-		{
+		for (i = 0, j = 0; i < root->ec; i++) {
 			if (!root->e[i]) continue;
-			if (j > 0)
-			{
+			if (j > 0) {
 				len += 2; // + 2 for ", "
-				if (b)
-				{
+				if (b) {
 					sprintf(b, ", ");
 					b += 2;
 				}
@@ -227,8 +209,7 @@ size_t _node_to_str(var_json_t *root, char *b)
 		break;
 	case VAR_JSON_NODE_TYPE_STRING:
 		len += json_wcslentombslen(root->wstring, 0) + 2; // 2 for quotes
-		if (b)
-		{
+		if (b) {
 			(*b) = '\"';
 			b++;
 			b += json_wcstombs(b, root->wstring, 0);
@@ -244,8 +225,7 @@ size_t _node_to_str(var_json_t *root, char *b)
 	case VAR_JSON_NODE_TYPE_NUMBER:
 		sprintf(xc, "%lf", root->number);
 		len += strlen(xc);
-		if (b)
-		{
+		if (b) {
 			sprintf(b, "%lf", root->number);
 			char *dot = strchr(b, ',');
 			if (dot) (*dot) = '.';
@@ -261,17 +241,15 @@ size_t _node_to_str(var_json_t *root, char *b)
 		break;
 	}
 
-	switch (root->type)
-	{
+	switch (root->type) {
 	case VAR_JSON_NODE_TYPE_OBJECT:
 	case VAR_JSON_NODE_TYPE_ARRAY:
-		if (b)
-		{
+		if (b) {
 			if (root->type == VAR_JSON_NODE_TYPE_OBJECT) sprintf(b, " }");
 			else sprintf(b, " ]");
 		}
 	}
-	
+
 	return len;
 }
 
@@ -282,27 +260,23 @@ var_json_t *_node_clone(var_json_t *src, var_json_t *parent)
 	int i, err;
 	var_json_t *clone;
 
-	if (src->type == VAR_JSON_NODE_TYPE_ROOT)
-	{
-		for (i = 0; i < src->ec; i++)
-		{
+	if (src->type == VAR_JSON_NODE_TYPE_ROOT) {
+		for (i = 0; i < src->ec; i++) {
 			if (!src->e[i]) continue;
 			_node_clone(src->e[i], parent);
 		}
 		return NULL;
 	}
-	
+
 	clone = _node_new(parent, src->type, NULL);
 	if (src->wname) clone->wname = wcsdup(src->wname);
 	if (src->wstring) clone->wstring = wcsdup(src->wstring);
 	clone->value = src->value;
 
-	switch (src->type)
-	{
+	switch (src->type) {
 	case VAR_JSON_NODE_TYPE_OBJECT:
 	case VAR_JSON_NODE_TYPE_ARRAY:
-		for (i = 0; i < src->ec; i++)
-		{
+		for (i = 0; i < src->ec; i++) {
 			if (!src->e[i]) continue;
 			_node_clone(src->e[i], clone);
 		}
@@ -318,19 +292,16 @@ out_err:
 var_json_t *_node_find_by_key(var_json_t *root, wchar_t *wname, int recursive)
 {
 	int i;
-	
-	if (root->wname)
-	{
+
+	if (root->wname) {
 		if (wcscmp(root->wname, wname) == 0) return root;
 	}
 
-	switch (root->type)
-	{
+	switch (root->type) {
 	case VAR_JSON_NODE_TYPE_OBJECT:
 	case VAR_JSON_NODE_TYPE_ARRAY:
 	case VAR_JSON_NODE_TYPE_ROOT:
-		for (i = 0; i < root->ec; i++)
-		{
+		for (i = 0; i < root->ec; i++) {
 			if (!root->e[i]) continue;
 			var_json_t *ret = NULL;
 			if (recursive) ret = _node_find_by_key(root->e[i], wname, recursive);
@@ -352,8 +323,7 @@ void _node_free(var_json_t *root)
 
 	if (root->wname) free(root->wname);
 
-	while (root->parse_stack)
-	{
+	while (root->parse_stack) {
 		struct var_json_parse_stack *stack = root->parse_stack;
 		root->parse_stack = stack->prev;
 		if (stack->key) free(stack->key);
@@ -361,14 +331,12 @@ void _node_free(var_json_t *root)
 		if (stack->error) free(stack->error);
 		free(stack);
 	}
-	
-	switch (root->type)
-	{
+
+	switch (root->type) {
 	case VAR_JSON_NODE_TYPE_OBJECT:
 	case VAR_JSON_NODE_TYPE_ARRAY:
 	case VAR_JSON_NODE_TYPE_ROOT:
-		for (i = 0; i < root->ec; i++)
-		{
+		for (i = 0; i < root->ec; i++) {
 			if (!root->e[i]) continue;
 			_node_free(root->e[i]);
 		}
@@ -386,8 +354,7 @@ void _node_free(var_json_t *root)
 	case VAR_JSON_NODE_TYPE_NULL:
 		break;
 	}
-	if (root->parent)
-	{
+	if (root->parent) {
 		root->parent->e[root->index] = NULL;
 	}
 	free(root);
@@ -398,9 +365,9 @@ void _node_free(var_json_t *root)
 var_json_t *var_json_new()
 {
 	var_json_t *node = NULL;
-	
+
 	var_json_init();
-	
+
 	lock_write(&json_lock);
 	node = _node_new(NULL, VAR_JSON_NODE_TYPE_ROOT, NULL);
 	lock_unlock(&json_lock);
@@ -413,7 +380,7 @@ var_json_t *var_json_new()
 var_json_t *var_json_object(var_json_t *root, const char *name)
 {
 	var_json_t *node = NULL;
-	
+
 	lock_write(&json_lock);
 	node = _node_new(root, VAR_JSON_NODE_TYPE_OBJECT, name);
 	lock_unlock(&json_lock);
@@ -426,11 +393,11 @@ var_json_t *var_json_object(var_json_t *root, const char *name)
 var_json_t *var_json_array(var_json_t *root, const char *name)
 {
 	var_json_t *node = NULL;
-	
+
 	lock_write(&json_lock);
 	node = _node_new(root, VAR_JSON_NODE_TYPE_ARRAY, name);
 	lock_unlock(&json_lock);
-	
+
 	return node;
 }
 
@@ -442,26 +409,24 @@ var_json_t *var_json_str(var_json_t *root, const char *name, const char *value, 
 	int size;
 	va_list args;
 	char *string = NULL;
-	
+
 	lock_write(&json_lock);
 
 	var_json_t *node = _node_new(root, VAR_JSON_NODE_TYPE_STRING, name);
-	
+
 	/* format given string */
-	if (node->wstring)
-	{
+	if (node->wstring) {
 		free(node->wstring);
 		node->wstring = NULL;
 	}
 	va_start(args, value);
 	size = vasprintf(&string, value, args);
-	if (json_ambstowcs(&node->wstring, string) < 0)
-	{
+	if (json_ambstowcs(&node->wstring, string) < 0) {
 		node->wstring = wcsdup(L"<invalid string, conversion error>");
 	}
 	free(string);
 	va_end(args);
-	
+
 	lock_unlock(&json_lock);
 
 out_err:
@@ -501,12 +466,12 @@ var_json_t *var_json_number(var_json_t *root, const char *name, double value)
 var_json_t *var_json_boolean(var_json_t *root, const char *name, int value)
 {
 	int err = 0;
-	
+
 	lock_write(&json_lock);
 	var_json_t *node = _node_new(root, VAR_JSON_NODE_TYPE_BOOL, name);
 	node->value = value ? 1 : 0;
 	lock_unlock(&json_lock);
-	
+
 	return node;
 }
 
@@ -520,7 +485,7 @@ var_json_t *var_json_null(var_json_t *root, const char *name)
 	lock_write(&json_lock);
 	node = _node_new(root, VAR_JSON_NODE_TYPE_NULL, name);
 	lock_unlock(&json_lock);
-	
+
 	return node;
 }
 
@@ -530,13 +495,13 @@ var_json_t *var_json_find_by_key(var_json_t *root, char *name, int recursive)
 {
 	var_json_t *node = NULL;
 	wchar_t *wname = NULL;
-	
+
 	lock_write(&json_lock);
 	json_ambstowcs(&wname, name);
 	node = _node_find_by_key(root, wname, recursive);
 	free(wname);
 	lock_unlock(&json_lock);
-	
+
 	return node;
 }
 
@@ -545,17 +510,17 @@ var_json_t *var_json_find_by_key(var_json_t *root, char *name, int recursive)
 char *var_json_to_str(var_json_t *root, size_t *len_ret)
 {
 	char *json_str = NULL;
-	
+
 	lock_write(&json_lock);
-	
+
 	size_t len = _node_to_str(root, NULL);
 	json_str = malloc(len + 16);
 	memset(json_str, 0, len + 16);
 	_node_to_str(root, json_str);
 	if (len_ret) *len_ret = len;
-	
+
 	lock_unlock(&json_lock);
-	
+
 	return json_str;
 }
 
@@ -644,27 +609,23 @@ ssize_t var_json_parse_byte(var_json_t *root, int byte)
 	IF_ER(type != JSON_PARSE_STRING && isspace(byte), 0);
 	/* dont accept any other character that whitespace after end of json */
 	IF_ERS(type == JSON_PARSE_END, -1, "end of json found but data still has other characters than whitespace");
-	
+
 	/* if string */
-	if (type == JSON_PARSE_STRING || type == JSON_PARSE_KEY)
-	{
+	if (type == JSON_PARSE_STRING || type == JSON_PARSE_KEY) {
 		IF_NODEEND(!special && byte == '\"');
-		
+
 		/* if special char */
 		if (byte == '\\' && special == 0) special = 1;
-		else if (byte != '\0')
-		{
+		else if (byte != '\0') {
 			int nchars = 1;
 			char s_uxxxx[16];
-			
+
 			/* convert special chars into their right forms
 			 * (skip ", \ and / since they are already in their right form)
 			 */
 			/** @todo handle 4hex digit form parsing */
-			if (special == 1)
-			{
-				switch (byte)
-				{
+			if (special == 1) {
+				switch (byte) {
 				case 'b':
 					byte = '\b';
 					break;
@@ -694,11 +655,10 @@ ssize_t var_json_parse_byte(var_json_t *root, int byte)
 				}
 			}
 			/* if parsing uXXXX character */
-			else if (special >= 2)
-			{
+			else if (special >= 2) {
 				mbstate_t mbs;
 				int hex = tolower(byte);
-				
+
 				/* accept hex only */
 				IF_ERS(!isxdigit(hex), -1, "non-hexdigit in backslashed unicode character");
 				/* convert char into its number form */
@@ -714,20 +674,16 @@ ssize_t var_json_parse_byte(var_json_t *root, int byte)
 				memset(s_uxxxx, 0, sizeof(s_uxxxx));
 				nchars = wcrtomb(s_uxxxx, uxxxx, &mbs);
 			}
-			
-			if ((len + nchars + 1) >= size)
-			{
+
+			if ((len + nchars + 1) >= size) {
 				size += 256;
 				data = realloc(data, size);
 			}
-			
-			if (special == 6)
-			{
+
+			if (special == 6) {
 				strcpy(&data[len], s_uxxxx);
 				len += strlen(s_uxxxx);
-			}
-			else
-			{
+			} else {
 				data[len] = (char)byte;
 				len++;
 				data[len] = '\0';
@@ -735,44 +691,35 @@ ssize_t var_json_parse_byte(var_json_t *root, int byte)
 			special = 0;
 		}
 	}
-	
+
 	if (type == JSON_PARSE_SOMETHING ||
-	    type == JSON_PARSE_START ||
-	    type == JSON_PARSE_OBJECT ||
-	    type == JSON_PARSE_ARRAY)
-	{
+	        type == JSON_PARSE_START ||
+	        type == JSON_PARSE_OBJECT ||
+	        type == JSON_PARSE_ARRAY) {
 		var_json_t *this = node;
 		struct var_json_parse_stack *stack_top = NULL;
 
-		if (type == JSON_PARSE_OBJECT)
-		{
+		if (type == JSON_PARSE_OBJECT) {
 			if (byte == '\"' && stack->key == NULL) type = JSON_PARSE_KEY;
-			else if (byte == ':')
-			{
+			else if (byte == ':') {
 				if (stack->key == NULL) IF_ERS(1, -1, "parsing object item without key");
 				type = JSON_PARSE_SOMETHING;
-			}
-			else if (stack->key != NULL) IF_ERS(1, -1, "key already parsed");
+			} else if (stack->key != NULL) IF_ERS(1, -1, "key already parsed");
 			else if (byte == '}') IF_NODEEND(1);
 			else if (byte == ',') OUT(0);
 			else IF_ERS(1, -1, "error parsing object");
-		}
-		else if (byte == '\"') type = JSON_PARSE_STRING;
+		} else if (byte == '\"') type = JSON_PARSE_STRING;
 		else if (isdigit(byte) || byte == '-') type = JSON_PARSE_NUMBER;
 		else if (byte == 't') type = JSON_PARSE_TRUE;
 		else if (byte == 'f') type = JSON_PARSE_FALSE;
 		else if (byte == 'n') type = JSON_PARSE_NULL;
-		else if (byte == '{')
-		{
+		else if (byte == '{') {
 			type = JSON_PARSE_OBJECT;
 			this = var_json_object(node, NULL);
-		}
-		else if (byte == '[')
-		{
+		} else if (byte == '[') {
 			type = JSON_PARSE_ARRAY;
 			this = var_json_array(node, NULL);
-		}
-		else if (byte == ']' && type == JSON_PARSE_ARRAY) IF_NODEEND(1);
+		} else if (byte == ']' && type == JSON_PARSE_ARRAY) IF_NODEEND(1);
 		else if (byte == ',' && type == JSON_PARSE_ARRAY) OUT(0);
 		else IF_ERS(1, -1, "error parsing json");
 
@@ -787,8 +734,7 @@ ssize_t var_json_parse_byte(var_json_t *root, int byte)
 		uxxxx = 0;
 	}
 
-	if (type == JSON_PARSE_NUMBER)
-	{
+	if (type == JSON_PARSE_NUMBER) {
 		int digit = tolower(byte);
 		if (special == 0 && (isdigit(digit) || digit == '-'));
 		else if (special == 1 && (isdigit(digit) || digit == '.' || digit == 'e'));
@@ -802,10 +748,9 @@ ssize_t var_json_parse_byte(var_json_t *root, int byte)
 		else if (special == 1 && digit == 'e') special = 3;
 		else if (special == 2 && digit == 'e') special = 3;
 		else if (special == 3) special = 4;
-		
-		
-		if ((len + 2) >= size)
-		{
+
+
+		if ((len + 2) >= size) {
 			size += 256;
 			data = realloc(data, size);
 		}
@@ -814,8 +759,7 @@ ssize_t var_json_parse_byte(var_json_t *root, int byte)
 		data[len] = '\0';
 	}
 
-	switch (type)
-	{
+	switch (type) {
 	case JSON_PARSE_TRUE:
 		IF_ERS(byte != (int)s_true[special], -1, "true misspelled");
 		special++;
@@ -832,41 +776,34 @@ ssize_t var_json_parse_byte(var_json_t *root, int byte)
 		IF_NODEEND(special >= 4);
 		break;
 	}
-	
+
 out_err:
 	if (byte == '\0' && type == JSON_PARSE_NUMBER) node_end = 1;
 	root->parse_bytes++;
-	if (!node_end)
-	{
+	if (!node_end) {
 		stack->type = type;
 		stack->data = data;
 		stack->len = len;
 		stack->size = size;
 		stack->special = special;
 		stack->uxxxx = uxxxx;
-	}
-	else
-	{
+	} else {
 		int dont_free_key = 0;
-		double number; 
+		double number;
 		var_json_t *child = NULL;
-		if (stack->prev)
-		{
+		if (stack->prev) {
 			child = stack->node;
 			root->parse_stack = stack->prev;
 			free(stack);
 			stack = root->parse_stack;
-			if (stack->type == JSON_PARSE_SOMETHING)
-			{
+			if (stack->type == JSON_PARSE_SOMETHING) {
 				root->parse_stack = stack->prev;
 				free(stack);
 				stack = root->parse_stack;
 			}
 			if (stack->type != JSON_PARSE_OBJECT) child = NULL;
-		}
-		else stack->type = JSON_PARSE_END;
-		switch (type)
-		{
+		} else stack->type = JSON_PARSE_END;
+		switch (type) {
 		case JSON_PARSE_STRING:
 			var_json_str(stack->node, stack->key, "%s", data);
 			break;
@@ -886,27 +823,20 @@ out_err:
 			break;
 		case JSON_PARSE_NUMBER:
 			number = 0;
-			if (sscanf(data, "%lf", &number) != 1)
-			{
+			if (sscanf(data, "%lf", &number) != 1) {
 				err = -1;
 				errstr = "invalid number format";
-			}
-			else
-			{
+			} else {
 				var_json_number(stack->node, stack->key, number);
 			}
 			break;
 		case JSON_PARSE_ARRAY:
 		case JSON_PARSE_OBJECT:
-			if (stack->type == JSON_PARSE_OBJECT)
-			{
-				if (!stack->key)
-				{
+			if (stack->type == JSON_PARSE_OBJECT) {
+				if (!stack->key) {
 					err = -1;
 					errstr = "object item missing key";
-				}
-				else
-				{
+				} else {
 					json_ambstowcs(&child->wname, stack->key);
 					free(stack->key);
 					stack->key = NULL;
@@ -914,18 +844,15 @@ out_err:
 			}
 			break;
 		}
-		if (stack->key != NULL && !dont_free_key)
-		{
+		if (stack->key != NULL && !dont_free_key) {
 			free(stack->key);
 			stack->key = NULL;
 		}
 		if (data) free(data);
 		if (type == JSON_PARSE_NUMBER) var_json_parse_byte(root, byte);
 	}
-	if (err < 0)
-	{
-		if (root->parse_stack->error)
-		{
+	if (err < 0) {
+		if (root->parse_stack->error) {
 			free(root->parse_stack->error);
 			root->parse_stack->error = NULL;
 		}
@@ -939,9 +866,8 @@ out_err:
 ssize_t var_json_parse_str(var_json_t *root, char *str)
 {
 	ssize_t err = 0;
-	
-	for ( ; (*str) != '\0'; str++)
-	{
+
+	for ( ; (*str) != '\0'; str++) {
 		err = var_json_parse_byte(root, (int)(*str));
 		if (err != 0) return -(root->parse_bytes);
 	}
@@ -960,17 +886,14 @@ ssize_t var_json_parse_file(var_json_t *root, char *filename)
 	int ch;
 
 	f = fopen(filename, "r");
-	if (!f)
-	{
+	if (!f) {
 		asprintf(&root->parse_stack->error, "open file failed: %s", strerror(errno));
 		return -1;
 	}
 
-	while ((ch = getc(f)) != EOF)
-	{
+	while ((ch = getc(f)) != EOF) {
 		err = var_json_parse_byte(root, ch);
-		if (err != 0)
-		{
+		if (err != 0) {
 			fclose(f);
 			return -(root->parse_bytes);
 		}
@@ -990,7 +913,7 @@ char *var_json_get_key(var_json_t *node)
 	mbstate_t mbs;
 	const wchar_t *wname = node->wname;
 	char *name;
-	
+
 	if (!wname) return NULL;
 	memset(&mbs, 0, sizeof(mbs));
 	len = wcsrtombs(NULL, &wname, 0, &mbs);
@@ -999,7 +922,7 @@ char *var_json_get_key(var_json_t *node)
 	memset(name, 0, len + 1);
 	memset(&mbs, 0, sizeof(mbs));
 	wcsrtombs(name, &wname, len, &mbs);
-	
+
 	return name;
 }
 
@@ -1009,13 +932,19 @@ char *var_json_get_str(var_json_t *node)
 {
 	size_t len = 0;
 	mbstate_t mbs;
-	const wchar_t *wstring = node->wstring;
 	char *string;
+	const wchar_t *wstring = node->wstring;
 
-	if (!wstring) return NULL;
+	if (!wstring || node->type != VAR_JSON_NODE_TYPE_STRING) {
+		return NULL;
+	}
+
 	memset(&mbs, 0, sizeof(mbs));
 	len = wcsrtombs(NULL, &wstring, 0, &mbs);
-	if (len < 0) return NULL;
+	if (len < 0) {
+		return NULL;
+	}
+
 	string = malloc(len + 1);
 	memset(string, 0, len + 1);
 	memset(&mbs, 0, sizeof(mbs));
@@ -1028,12 +957,34 @@ char *var_json_get_str(var_json_t *node)
 /******************************************************************************/
 int var_json_get_int(var_json_t *node)
 {
+	if (node->type == VAR_JSON_NODE_TYPE_INT) {
+		return node->value;
+	} else if (node->type == VAR_JSON_NODE_TYPE_NUMBER) {
+		return (int)node->number;
+	} else if (node->type == VAR_JSON_NODE_TYPE_STRING) {
+		char *data = var_json_get_str(node);
+		int value = atoi(data);
+		free(data);
+		return value;
+	}
+	return 0;
 }
 
 
 /******************************************************************************/
 double var_json_get_number(var_json_t *node)
 {
+	if (node->type == VAR_JSON_NODE_TYPE_NUMBER) {
+		return node->number;
+	} else if (node->type == VAR_JSON_NODE_TYPE_INT) {
+		return (double)node->value;
+	} else if (node->type == VAR_JSON_NODE_TYPE_STRING) {
+		char *data = var_json_get_str(node);
+		double value = atof(data);
+		free(data);
+		return value;
+	}
+	return NAN;
 }
 
 
@@ -1098,15 +1049,14 @@ var_json_t **var_json_get_list(var_json_t *root, size_t *count)
 {
 	var_json_t **list = NULL;
 	size_t i;
-	
+
 	if (root->type != VAR_JSON_NODE_TYPE_OBJECT && root->type != VAR_JSON_NODE_TYPE_ARRAY) return NULL;
 	if (!count) return NULL;
-	
+
 	lock_write(&json_lock);
 	(*count) = root->ec;
 	list = (var_json_t **)malloc(sizeof(*list) * (*count));
-	for (i = 0; i < (*count); i++)
-	{
+	for (i = 0; i < (*count); i++) {
 		list[i] = _node_clone(root->e[i], NULL);
 	}
 	lock_unlock(&json_lock);
@@ -1120,8 +1070,7 @@ out_err:
 void var_json_free_list(var_json_t **list, size_t count)
 {
 	size_t i;
-	for (i = 0; i < count; i++)
-	{
+	for (i = 0; i < count; i++) {
 		_node_free(list[i]);
 	}
 	free(list);
